@@ -13,14 +13,16 @@
 # limitations under the License.
 
 """Collection of Encoders (i.e., GANs' Discriminators) models."""
+from typing import Tuple, Type, Union
+
 from tensorflow import keras  # pylint: disable=no-name-in-module
 
 from ashpy.models.convolutional.interfaces import Conv2DInterface
 
-__ALL__ = ["BaseEncoder", "FCNNBaseEncoder"]
+__ALL__ = ["Encoder", "FCNNEncoder"]
 
 
-class BaseEncoder(Conv2DInterface):
+class Encoder(Conv2DInterface):
     """
     Primitive Model for all encoder (i.e., convolution) based architecture.
 
@@ -32,7 +34,7 @@ class BaseEncoder(Conv2DInterface):
 
             .. testcode::
 
-                dummy_generator = BaseEncoder(
+                dummy_generator = Encoder(
                     layer_spec_input_res=(64, 64),
                     layer_spec_target_res=(8, 8),
                     kernel_size=5,
@@ -45,7 +47,7 @@ class BaseEncoder(Conv2DInterface):
 
             .. testcode::
 
-                class DummyDiscriminator(BaseEncoder):
+                class DummyDiscriminator(Encoder):
                     def call(self, inputs, training=True):
                         print("Dummy Discriminator!")
                         # build the model using
@@ -70,18 +72,18 @@ class BaseEncoder(Conv2DInterface):
 
     def __init__(
         self,
-        layer_spec_input_res,
-        layer_spec_target_res,
-        kernel_size,
-        initial_filters,
-        filters_cap,
-        output_shape,
-        use_dropout=True,
-        dropout_prob=0.3,
-        non_linearity=keras.layers.LeakyReLU,
+        layer_spec_input_res: Union[int, Tuple[int, int]],
+        layer_spec_target_res: Union[int, Tuple[int, int]],
+        kernel_size: Union[int, Tuple[int, int]],
+        initial_filters: int,
+        filters_cap: int,
+        output_shape: int,
+        use_dropout: bool = True,
+        dropout_prob: float = 0.3,
+        non_linearity: Type[keras.layers.Activation] = keras.layers.LeakyReLU,
     ):
         """
-        Instantiate the :py:class:`BaseDecoder`.
+        Instantiate the :py:class:`Decoder`.
 
         Args:
             layer_spec_input_res (:obj:`tuple` of (:obj:`int`, :obj:`int`)): Shape of
@@ -127,7 +129,7 @@ class BaseEncoder(Conv2DInterface):
 
     def _add_building_block(self, filters):
         """
-        Construct the core of the :py:obj:`tf.keras.model`.
+        Construct the core of the :py:obj:`tf.keras.Model`.
 
         The layers specified here get added to the :py:obj:`tf.keras.Model` multiple times
         consuming the hyper-parameters generated in the :func:`_get_layer_spec`.
@@ -149,7 +151,7 @@ class BaseEncoder(Conv2DInterface):
 
     def _add_final_block(self, output_shape):
         """
-        Take the results of :func:`_add_building_block` and prepare them for the for the final output.
+        Prepare the results of :func:`_add_building_block` for the final output.
 
         Args:
             output_shape (int): Amount of units of the last :py:obj:`tf.keras.layers.Dense`
@@ -160,8 +162,10 @@ class BaseEncoder(Conv2DInterface):
         )
 
 
-class FCNNBaseEncoder(BaseEncoder):
-    """Fully Convolutional Encoder. Output a 1x1xencoding_size vector.
+class FCNNEncoder(Encoder):
+    """Fully Convolutional Encoder.
+
+    Output a 1x1xencoding_size vector.
     The output neurons are linear.
 
     Examples:
@@ -169,7 +173,7 @@ class FCNNBaseEncoder(BaseEncoder):
 
             .. testcode::
 
-                dummy_generator = FCNNBaseEncoder(
+                dummy_generator = FCNNEncoder(
                     layer_spec_input_res=(64, 64),
                     layer_spec_target_res=(8, 8),
                     kernel_size=5,
@@ -195,7 +199,7 @@ class FCNNBaseEncoder(BaseEncoder):
         encoding_dimension,
     ):
         """
-        Instantiate the :py:class:`FCNNBaseDecoder`.
+        Instantiate the :py:class:`FCNNDecoder`.
 
         Args:
             layer_spec_input_res (:obj:`tuple` of (:obj:`int`, :obj:`int`)): Shape of

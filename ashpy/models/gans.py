@@ -23,7 +23,8 @@ GANs Models.
     :nosignatures:
     :toctree: models
 
-    Generator
+    ConvGenerator
+    DenseGenerator
 
 ----
 
@@ -33,7 +34,8 @@ GANs Models.
     :nosignatures:
     :toctree: models
 
-    Discriminator
+    ConvDiscriminator
+    DenseDiscriminator
 
 ----
 
@@ -43,20 +45,19 @@ GANs Models.
     :nosignatures:
     :toctree: models
 
-    Encoder
+    ConvEncoder
+    DenseEncoder
 
 """
-from ashpy.models.convolutional.decoders import BaseDecoder
-from ashpy.models.convolutional.encoders import BaseEncoder
+from ashpy.models.convolutional.decoders import Decoder as ConvDecoder
+from ashpy.models.convolutional.encoders import Encoder as ConvEncoder
+from ashpy.models.fc.decoders import Decoder as DenseDecoder
+from ashpy.models.fc.encoders import Encoder as DenseEncoder
 
+ConvGenerator = ConvDecoder
+ConvDiscriminator = ConvEncoder
+ConvEncoder = ConvEncoder
 
-class Generator(BaseDecoder):
-    """GAN Generator Model."""
-
-
-class Discriminator(BaseEncoder):
-    """GAN Discriminator Model."""
-
-
-class Encoder(BaseEncoder):
-    """GAN Encoder Model."""
+DenseGenerator = DenseDecoder
+DenseDiscriminator = DenseEncoder
+DenseEncoder = DenseEncoder

@@ -33,7 +33,7 @@ Collection of Fully Connected Models constructors.
     :nosignatures:
     :toctree: fc
 
-    decoders.BaseDecoder
+    decoders.Decoder
 
 ----
 
@@ -43,7 +43,7 @@ Collection of Fully Connected Models constructors.
     :nosignatures:
     :toctree: fc
 
-    encoders.BaseEncoder
+    encoders.Encoder
 
 ----
 
@@ -53,7 +53,7 @@ Collection of Fully Connected Models constructors.
     :nosignatures:
     :toctree: fc
 
-    autoencoders.BaseAutoencoder
+    autoencoders.Autoencoder
 
 ----
 
@@ -64,9 +64,9 @@ Collection of Fully Connected Models constructors.
     :toctree: fc
     :template: autosummary/submodule.rst
 
-    interfaces
+    autoencoders
     decoders
     encoders
-    autoencoders
+    interfaces
 
 """

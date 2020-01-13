@@ -15,42 +15,50 @@
 """Primitive Trainer Interface."""
 
 import os
+from typing import List, Optional
 
 import tensorflow as tf
 
+import ashpy
+from ashpy.callbacks import Callback
 from ashpy.contexts.classifier import ClassifierContext
 from ashpy.datasets import wrap
-from ashpy.metrics import ClassifierLoss
-from ashpy.trainers.base_trainer import BaseTrainer
+from ashpy.metrics import Metric
+from ashpy.metrics.classifier import ClassifierLoss
+from ashpy.trainers.trainer import Trainer
 
 
-class ClassifierTrainer(BaseTrainer):
+class ClassifierTrainer(Trainer):
     r""":py:class:`ClassifierTrainer` provide the standard training loop for a classifier."""
 
     def __init__(
         self,
-        model,
-        optimizer,
-        loss,
-        epochs,
-        metrics=None,
-        logdir=os.path.join(os.getcwd(), "log"),
-        global_step=tf.Variable(0, name="global_step", trainable=False, dtype=tf.int64),
-        post_process_callback=None,
+        model: tf.keras.models.Model,
+        optimizer: tf.optimizers.Optimizer,
+        loss: ashpy.losses.ClassifierLoss,
+        epochs: int,
+        metrics: Optional[List[Metric]] = None,
+        callbacks: Optional[List[Callback]] = None,
+        logdir: str = os.path.join(os.getcwd(), "log"),
+        global_step: Optional[tf.Variable] = None,
     ):
         r"""
         Instantiate the :py:class:`ClassifierTrainer` trainer.
 
         Args:
             model (:py:class:`tf.keras.Model`): A :py:class:`tf.keras.Model` model.
-            optimizer (:py:class:`tf.optimizers.Optimizer`): A :py:class:`tf.optimizers.Optimizer`.
-            loss (:obj:`callable`): A loss function built following :py:mod:`tf.losses`.
+            optimizer (:py:class:`tf.optimizers.Optimizer`): A
+                :py:class:`tf.optimizers.Optimizer`.
+            loss (:obj:`ashpy.losses.classifier.ClassifierLoss`): A loss function built following
+                :py:mod:`ashpy.executors``.
             epochs (int): Number of training epochs.
-            metrics: (List): List of python objects (dictionaries or tf.metrics objects) to
+            metrics: (List): List of :py:class:`ashpy.metrics.metric.Metric` to
                 measure on training and validation data.
+            callbacks (List): List of :py:class:`ashpy.callbacks.callback.Callback` to
+                to call on events
             logdir (str): Checkpoint and log directory.
-            global_step: tf.Variable that keeps track of the training steps.
-            post_process_callback(:obj:`callable`): the function to postprocess the model output, if needed.
+            global_step (Optional[py:class:`tf.Variable`]): tf.Variable that keeps
+                track of the training steps.
 
         Examples:
             .. testcode::
@@ -82,28 +90,40 @@ class ClassifierTrainer(BaseTrainer):
                     ClassifierMetric(tf.metrics.BinaryAccuracy()),
                 ]
 
-                trainer = ClassifierTrainer(model, optimizer, loss, epochs, metrics, logdir=logdir)
+                trainer = ClassifierTrainer(model=model,
+                                            optimizer=optimizer,
+                                            loss=loss,
+                                            epochs=epochs,
+                                            metrics=metrics,
+                                            logdir=logdir)
                 train, validation = toy_dataset(), toy_dataset()
                 trainer(train, validation)
                 shutil.rmtree(logdir)
 
             .. testoutput::
+
                 Initializing checkpoint.
+                Starting epoch 1.
                 [500] Saved checkpoint: testlog/ckpts/ckpt-1
                 Epoch 1 completed.
+                Starting epoch 2.
                 [1000] Saved checkpoint: testlog/ckpts/ckpt-2
                 Epoch 2 completed.
+                Training finished after 2 epochs.
+
         """
         super().__init__(
             epochs=epochs,
             logdir=logdir,
             global_step=global_step,
-            post_process_callback=post_process_callback,
+            callbacks=callbacks,
+            example_dim=(1, 1),
         )
 
         self._model = model
         self._optimizer = optimizer
         self._loss = loss
+        self._loss.reduction = tf.keras.losses.Reduction.NONE
 
         self._avg_loss = ClassifierLoss()
         if metrics:
@@ -115,13 +135,15 @@ class ClassifierTrainer(BaseTrainer):
             metric.logdir = self._logdir
         self._metrics = metrics
 
-        self._ckpt.objects.extend([self._optimizer, self._model])
+        self._checkpoint.objects.extend([self._optimizer, self._model])
         self._restore_or_init()
         self._context = ClassifierContext(
             classifier_model=self._model,
+            loss=self._loss,
+            metrics=self._metrics,
             log_eval_mode=self._log_eval_mode,
             global_step=self._global_step,
-            ckpt=self._ckpt,
+            checkpoint=self._checkpoint,
         )
 
     def train_step(self, features, labels):
@@ -147,67 +169,101 @@ class ClassifierTrainer(BaseTrainer):
 
     @tf.function
     def _train_step(self, example):
-        """The training step that uses the distribution strategy."""
+        """Perform the training step using the distribution strategy."""
         per_replica_loss = self._distribute_strategy.experimental_run_v2(
             self.train_step, args=(example[0], example[1])
         )
         return self._reduce(per_replica_loss, tf.distribute.ReduceOp.SUM)
 
-    def _measure_performance(self, dataset):
-        """Measure and log metrics on the dataset."""
-        context = ClassifierContext(
-            self._model,
-            self._loss,
-            dataset,
-            self._metrics,
-            log_eval_mode=self._log_eval_mode,
-            global_step=self._global_step,
-            ckpt=self._ckpt,
-        )
-        context.measure_metrics()
-        context.model_selection()
-        self._log_metrics_and_reset()
-
-    def call(self, train_set, validation_set):
+    def call(
+        self,
+        training_set: tf.data.Dataset,
+        validation_set: tf.data.Dataset,
+        log_freq: int = 10,
+        measure_performance_freq: int = 10,
+    ):
         """
         Start the training.
 
         Args:
-            train_set (:py:obj:`tf.data.Dataset`): Training dataset.
+            training_set (:py:obj:`tf.data.Dataset`): Training dataset.
             validation_set (:py:obj:`tf.data.Dataset`): Validation dataset.
+            log_freq (int): Specifies how many steps to run before logging the losses,
+                e.g. `log_frequency=10` logs every 10 steps of training.
+                Pass `log_frequency<=0` in case you don't want to log.
+            measure_performance_freq (int): Specifies how many steps to run before
+                measuring the performance, e.g. `measure_performance_freq=10`
+                measures performance every 10 steps of training.
+                Pass `measure_performance_freq<=0` in case you don't want to measure
+                performance.
+
         """
+        # set the context properties
+        self._context.training_set = training_set
+        self._context.validation_set = validation_set
+
         current_epoch = self._current_epoch()
-        self._update_global_batch_size(train_set, self._loss)
+        self._update_global_batch_size(training_set, self._loss)
+
+        # measure performance on the validation set
         with self._eval_summary_writer.as_default():
-            self._measure_performance(validation_set)
+            self._context.dataset = validation_set
+            self._measure_performance()
 
         # need to use the global batch size in the training set
-        train_set = wrap(
-            train_set.unbatch().batch(
+        training_set = wrap(
+            training_set.unbatch().batch(
                 self._global_batch_size, drop_remainder=tf.distribute.has_strategy()
             )
         )
-        samples = train_set.take(1)
 
         with self._train_summary_writer.as_default():
-            for epoch in tf.range(current_epoch, self._epochs):
+
+            # notify on train start
+            self._on_train_start()
+
+            for _ in tf.range(current_epoch, self._epochs):
                 distribute_dataset = self._distribute_strategy.experimental_distribute_dataset(
-                    train_set
+                    training_set
                 )
 
-                for example in distribute_dataset:
-                    loss = self._train_step(example)
-                    self._global_step.assign_add(1)
-                    if tf.equal(tf.math.mod(self._global_step, 10), 0):
-                        tf.print(f"[{self._global_step.numpy()}] loss: {loss}")
-                        self._measure_performance(
-                            tf.data.Dataset.from_tensor_slices(example).batch(
-                                self._global_batch_size
-                            )
-                        )
-                        self._log("input_x", example[0])
-                        self._log("input_y", example[1])
+                # notify on epoch start
+                self._on_epoch_start()
 
-                self._epoch_completed(epoch + 1)
+                for example in distribute_dataset:
+
+                    self._context.current_batch = self.local_example(example, (1, 1))
+
+                    # notify on batch start
+                    self._on_batch_start()
+
+                    # perform training step
+                    loss = self._train_step(example)
+
+                    # increase global step
+                    self._global_step.assign_add(1)
+
+                    # log loss if needed
+                    if log_freq > 0 and tf.equal(
+                        tf.math.mod(self._global_step, log_freq), 0
+                    ):
+                        tf.print(f"[{self._global_step.numpy()}] loss: {loss}")
+
+                    # measure performance
+                    # this can also be moved to on_batch_end
+                    self._measure_performance_if_needed(
+                        example, measure_performance_freq
+                    )
+
+                    # notify on batch end
+                    self._on_batch_end()
+
+                # notify on epoch end
+                self._on_epoch_end()
+
                 with self._eval_summary_writer.as_default():
-                    self._measure_performance(validation_set)
+                    self._context.dataset = validation_set
+                    self._measure_performance()
+
+            # final callback
+            self._on_train_end()

@@ -12,22 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Example of Multi-GPU classifier trainer."""
+
 import operator
 
 import tensorflow as tf
 
-from ashpy.losses.classifier import ClassifierLoss
+from ashpy.losses import ClassifierLoss
 from ashpy.metrics import ClassifierMetric
-from ashpy.trainers.classifier import ClassifierTrainer
+from ashpy.trainers import ClassifierTrainer
 
 
 def main():
-    """How to use ash to train a classifier, measure the
-    performance and perform model selection."""
+    """
+    Train a multi-GPU classifier.
 
+    How to use ash to training_set a classifier, measure the
+    performance and perform model selection.
+    """
     strategy = tf.distribute.MirroredStrategy()
     with strategy.scope():
-        train, validation = tf.keras.datasets.mnist.load_data()
+        training_set, validation_set = tf.keras.datasets.mnist.load_data()
 
         def process(images, labels):
             data_images = tf.data.Dataset.from_tensor_slices((images)).map(
@@ -41,9 +46,9 @@ def main():
             dataset = dataset.batch(1024 * 1)
             return dataset
 
-        train, validation = (
-            process(train[0], train[1]),
-            process(validation[0], validation[1]),
+        training_set, validation_set = (
+            process(training_set[0], training_set[1]),
+            process(validation_set[0], validation_set[1]),
         )
 
         model = tf.keras.Sequential(
@@ -67,9 +72,14 @@ def main():
         ]
 
         trainer = ClassifierTrainer(
-            model, optimizer, loss, epochs, metrics, logdir=logdir
+            model=model,
+            optimizer=optimizer,
+            loss=loss,
+            epochs=epochs,
+            metrics=metrics,
+            logdir=logdir,
         )
-        trainer(train, validation)
+        trainer(training_set, validation_set)
 
 
 if __name__ == "__main__":

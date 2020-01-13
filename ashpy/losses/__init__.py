@@ -44,12 +44,14 @@ Collection of Losses.
     :nosignatures:
     :toctree: gan
 
+    gan.GANExecutor
     gan.AdversarialLossType
-    gan.AdversarialLossG
-    gan.AdversarialLossD
+    gan.GeneratorAdversarialLoss
+    gan.DiscriminatorAdversarialLoss
     gan.GeneratorBCE
     gan.GeneratorLSGAN
     gan.GeneratorL1
+    gan.GeneratorHingeLoss
     gan.FeatureMatchingLoss
     gan.CategoricalCrossEntropy
     gan.Pix2PixLoss
@@ -57,6 +59,7 @@ Collection of Losses.
     gan.EncoderBCE
     gan.DiscriminatorMinMax
     gan.DiscriminatorLSGAN
+    gan.DiscriminatorHingeLoss
     gan.get_adversarial_loss_discriminator
     gan.get_adversarial_loss_generator
 
@@ -75,49 +78,48 @@ Collection of Losses.
 
 """
 
+from ashpy.losses.classifier import ClassifierLoss
+from ashpy.losses.executor import Executor, SumExecutor
 from ashpy.losses.gan import (
     AdversarialLossType,
-    GANExecutor,
-    AdversarialLossG,
-    GeneratorBCE,
-    GeneratorLSGAN,
-    GeneratorL1,
-    FeatureMatchingLoss,
     CategoricalCrossEntropy,
+    DiscriminatorAdversarialLoss,
+    DiscriminatorLSGAN,
+    DiscriminatorMinMax,
+    EncoderBCE,
+    FeatureMatchingLoss,
+    GANExecutor,
+    GeneratorAdversarialLoss,
+    GeneratorBCE,
+    GeneratorL1,
+    GeneratorLSGAN,
     Pix2PixLoss,
     Pix2PixLossSemantic,
-    EncoderBCE,
-    AdversarialLossD,
-    DiscriminatorMinMax,
-    DiscriminatorLSGAN,
     get_adversarial_loss_discriminator,
     get_adversarial_loss_generator,
 )
 
-from ashpy.losses.classifier import ClassifierLoss
-
-from ashpy.losses.executor import Executor, SumExecutor
-
 __ALL__ = [
-    "GANExecutor",
-    "ClassifierLoss",
+    "DiscriminatorAdversarialLoss",
+    "GeneratorAdversarialLoss",
     "AdversarialLossType",
-    "AdversarialLossG",
-    "AdversarialLossD",
-    "GeneratorBCE",
-    "GeneratorLSGAN",
-    "GeneratorL1",
-    "FeatureMatchingLoss",
     "CategoricalCrossEntropy",
-    "Pix2PixLoss",
-    "Pix2PixLossSemantic",
-    "EncoderBCE",
-    "AdversarialLossD",
-    "DiscriminatorMinMax",
+    "ClassifierLoss",
+    "ClassifierLoss",
     "DiscriminatorLSGAN",
+    "DiscriminatorMinMax",
+    "DiscriminatorHingeLoss",
+    "EncoderBCE",
+    "Executor",
+    "FeatureMatchingLoss",
+    "GANExecutor",
+    "GeneratorBCE",
+    "GeneratorL1",
+    "GeneratorLSGAN",
+    "GeneratorHingeLoss",
     "get_adversarial_loss_discriminator",
     "get_adversarial_loss_generator",
-    "ClassifierLoss",
-    "Executor",
+    "Pix2PixLoss",
+    "Pix2PixLossSemantic",
     "SumExecutor",
 ]

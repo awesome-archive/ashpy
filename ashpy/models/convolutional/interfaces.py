@@ -17,7 +17,6 @@
 import inspect
 
 import numpy as np
-import tensorflow as tf
 from tensorflow import keras  # pylint: disable=no-name-in-module
 
 __ALL__ = ["Conv2DInterface"]
@@ -27,8 +26,10 @@ class Conv2DInterface(keras.Model):
     """Primitive Interface to be used by all :mod:`ashpy.models`."""
 
     def __init__(self):
-        """Primitive Interface to be used by all :mod:`ashpy.models`.
-        Declares the self._layers list.
+        """
+        Primitive Interface to be used by all :mod:`ashpy.models`.
+
+        Declares the `self.model_layers` list.
         """
         super().__init__()
         self.model_layers = []
@@ -128,11 +129,13 @@ class Conv2DInterface(keras.Model):
         Execute the model on input data.
 
         Args:
-            inputs (:py:class:`tf.Tensor`): Input tensors.
+            inputs (:py:class:`tf.Tensor`): Input tensor(s).
             training (:obj:`bool`): Training flag.
+            return_features (:obj:`bool`): If True returns the features.
 
         Returns:
-            :py_class:`tf.Tensor`
+            :py:class:`tf.Tensor`: The model output.
+
         """
         layer_input = inputs
         features = []

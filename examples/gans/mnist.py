@@ -12,24 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Adverserial trainer example."""
+"""Adversarial trainer example."""
 
 import tensorflow as tf
 from tensorflow import keras  # pylint: disable=no-name-in-module
 
-from ashpy.losses.gan import DiscriminatorMinMax, GeneratorBCE
+from ashpy.losses import DiscriminatorMinMax, GeneratorBCE
 from ashpy.metrics import InceptionScore
-from ashpy.models.gans import Discriminator, Generator
-from ashpy.trainers.gan import AdversarialTrainer
+from ashpy.models.gans import ConvDiscriminator, ConvGenerator
+from ashpy.trainers import AdversarialTrainer
 
 
 def main():
-    """Main."""
-
+    """Adversarial trainer example."""
     strategy = tf.distribute.MirroredStrategy()
     with strategy.scope():
 
-        generator = Generator(
+        generator = ConvGenerator(
             layer_spec_input_res=(7, 7),
             layer_spec_target_res=(28, 28),
             kernel_size=(5, 5),
@@ -38,7 +37,7 @@ def main():
             channels=1,
         )
 
-        discriminator = Discriminator(
+        discriminator = ConvDiscriminator(
             layer_spec_input_res=(28, 28),
             layer_spec_target_res=(7, 7),
             kernel_size=(5, 5),
@@ -76,15 +75,15 @@ def main():
 
         epochs = 50
         trainer = AdversarialTrainer(
-            generator,
-            discriminator,
-            tf.optimizers.Adam(1e-4),
-            tf.optimizers.Adam(1e-4),
-            generator_bce,
-            minmax,
-            epochs,
-            metrics,
-            logdir,
+            generator=generator,
+            discriminator=discriminator,
+            generator_optimizer=tf.optimizers.Adam(1e-4),
+            discriminator_optimizer=tf.optimizers.Adam(1e-4),
+            generator_loss=generator_bce,
+            discriminator_loss=minmax,
+            epochs=epochs,
+            metrics=metrics,
+            logdir=logdir,
         )
 
         batch_size = 512
@@ -93,7 +92,7 @@ def main():
         mnist_x, mnist_y = keras.datasets.mnist.load_data()[0]
 
         def iterator():
-            """Iterator in order to do not load in memory all the dataset."""
+            """Define an iterator in order to do not load in memory all the dataset."""
             for image, label in zip(mnist_x, mnist_y):
                 yield tf.image.convert_image_dtype(
                     tf.expand_dims(image, -1), tf.float32

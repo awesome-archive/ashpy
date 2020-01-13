@@ -17,18 +17,18 @@
 import operator
 
 import tensorflow as tf
-from tensorflow import keras  # pylint: disable=no-name-in-module
+from tensorflow import keras
 
-from ashpy.losses.gan import DiscriminatorMinMax, EncoderBCE, GeneratorBCE
+from ashpy.losses import DiscriminatorMinMax, EncoderBCE, GeneratorBCE
 from ashpy.metrics import EncodingAccuracy
 from ashpy.trainers import EncoderTrainer
 
 
 def main():
-    """Main train loop and models definition."""
+    """Define the trainer and the models."""
 
     def real_gen():
-        """generator of real values."""
+        """Define generator of real values."""
         for _ in tf.range(100):
             yield ((10.0,), (0,))
 
@@ -68,16 +68,16 @@ def main():
     ]
 
     trainer = EncoderTrainer(
-        generator,
-        discriminator,
-        encoder,
-        tf.optimizers.Adam(1e-4),
-        tf.optimizers.Adam(1e-5),
-        tf.optimizers.Adam(1e-6),
-        generator_bce,
-        minmax,
-        encoder_bce,
-        epochs,
+        generator=generator,
+        discriminator=discriminator,
+        encoder=encoder,
+        generator_optimizer=tf.optimizers.Adam(1e-4),
+        discriminator_optimizer=tf.optimizers.Adam(1e-5),
+        encoder_optimizer=tf.optimizers.Adam(1e-6),
+        generator_loss=generator_bce,
+        discriminator_loss=minmax,
+        encoder_loss=encoder_bce,
+        epochs=epochs,
         metrics=metrics,
         logdir=logdir,
     )

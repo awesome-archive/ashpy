@@ -18,10 +18,10 @@ from tensorflow import keras  # pylint: disable=no-name-in-module
 
 from ashpy.models.convolutional.interfaces import Conv2DInterface
 
-__ALL__ = ["BaseDecoder", "FCNNBaseDecoder"]
+__ALL__ = ["Decoder", "FCNNDecoder"]
 
 
-class BaseDecoder(Conv2DInterface):
+class Decoder(Conv2DInterface):
     """
     Primitive Model for all decoder (i.e., transpose convolution) based architecture.
 
@@ -33,7 +33,7 @@ class BaseDecoder(Conv2DInterface):
 
             .. testcode::
 
-                dummy_generator = BaseDecoder(
+                dummy_generator = Decoder(
                     layer_spec_input_res=(8, 8),
                     layer_spec_target_res=(64, 64),
                     kernel_size=(5, 5),
@@ -46,7 +46,7 @@ class BaseDecoder(Conv2DInterface):
 
             .. testcode::
 
-                class DummyGenerator(BaseDecoder):
+                class DummyGenerator(Decoder):
                     def call(self, input, training=True):
                         print("Dummy Generator!")
                         return input
@@ -80,18 +80,18 @@ class BaseDecoder(Conv2DInterface):
         non_linearity=keras.layers.LeakyReLU,
     ):
         r"""
-        Instantiate the :class:`BaseDecoder`.
+        Instantiate the :class:`Decoder`.
 
         Model Assembly:
-            1. :func:`_add_malkuth_block`: Ingest the :py:obj:`tf.keras.Model`
-            inputs and prepare them for :func:`_add_yesod_block`.
+            1. :func:`_add_initial_block`: Ingest the :py:obj:`tf.keras.Model`
+            inputs and prepare them for :func:`_add_building_block`.
 
-            2. :func:`_add_yesod_block`: Core of the model, the layers specified
+            2. :func:`_add_building_block`: Core of the model, the layers specified
             here get added to the :py:obj:`tf.keras.Model` multiple times consuming the
             hyperparameters generated in the :func:`_get_layer_spec`.
 
-            3. :func:`_add_daat_block`: Final block of our :py:obj:`tf.keras.Model`,
-            take the model after :func:`_add_yesod_block` and prepare them for the
+            3. :func:`_add_final_block`: Final block of our :py:obj:`tf.keras.Model`,
+            take the model after :func:`_add_building_block` and prepare them for the
             for the final output.
 
         Args:
@@ -110,7 +110,7 @@ class BaseDecoder(Conv2DInterface):
             :py:obj:`None`
 
         Raises:
-            ValueError: If `filters_cap` > `initial_filters`
+            ValueError: If `filters_cap` > `initial_filters`.
 
         """
         super().__init__()
@@ -145,7 +145,7 @@ class BaseDecoder(Conv2DInterface):
 
     def _add_initial_block(self, initial_filters, input_res):
         """
-        Ingest the :py:obj:`tf.keras.Model` inputs and prepare them for :func:`_add_yesod_block`.
+        Ingest the :py:obj:`tf.keras.Model` inputs and prepare them for :func:`_add_building_block`.
 
         Args:
             initial_filters (int): Numbers of filters to used as a base value.
@@ -164,13 +164,14 @@ class BaseDecoder(Conv2DInterface):
 
     def _add_building_block(self, filters):
         """
-        Construct the core of the :py:obj:`tf.keras.model`.
+        Construct the core of the :py:obj:`tf.keras.Model`.
 
         The layers specified here get added to the :py:obj:`tf.keras.Model` multiple times
         consuming the hyperparameters generated in the :func:`_get_layer_spec`.
 
         Args:
-            filters (int): Number of filters to use for this iteration of the Yesod Block.
+            filters (int): Number of filters to use for this iteration of the Building Block.
+
         """
         self.model_layers.extend(
             [
@@ -188,12 +189,10 @@ class BaseDecoder(Conv2DInterface):
 
     def _add_final_block(self, channels):
         """
-        Take the results of :func:`_add_yesod_block` and prepare them for the for the final output.
+        Prepare results of :func:`_add_building_block` for the for the final output.
 
         Args:
             channels (int): Channels of the output images (1 for Grayscale, 3 for RGB).
-            kernel_size (:obj:`tuple` of (:obj:`int`, :obj:`int`)): Kernel used by the
-                convolution layers.
 
         """
         self.model_layers.append(
@@ -208,15 +207,14 @@ class BaseDecoder(Conv2DInterface):
         )
 
 
-class FCNNBaseDecoder(BaseDecoder):
+class FCNNDecoder(Decoder):
     """Fully Convolutional Decoder. Expected input is a feature map.
 
     Examples:
         * Direct Usage:
-
             .. testcode::
 
-                dummy_generator = FCNNBaseDecoder(
+                dummy_generator = FCNNDecoder(
                     layer_spec_input_res=(8, 8),
                     layer_spec_target_res=(64, 64),
                     kernel_size=(5, 5),
@@ -245,6 +243,7 @@ class FCNNBaseDecoder(BaseDecoder):
         dropout_prob=0.3,
         non_linearity=keras.layers.LeakyReLU,
     ):
+        """Build a Fully Convolutional Decoder."""
         self._kernel_size = kernel_size
         super().__init__(
             layer_spec_input_res,
@@ -260,7 +259,7 @@ class FCNNBaseDecoder(BaseDecoder):
 
     def _add_initial_block(self, initial_filters, input_res):
         """
-        Ingest the :py:obj:`tf.keras.Model` inputs and prepare them for :func:`_add_yesod_block`.
+        Ingest the :py:obj:`tf.keras.Model` inputs and prepare them for :func:`_add_building_block`.
 
         Args:
             initial_filters (int): Numbers of filters to used as a base value.
@@ -272,11 +271,9 @@ class FCNNBaseDecoder(BaseDecoder):
         # GOAL: upsample in order to make it input_res[0], input_res[1], initial_filters
         # Since conv2dtrasponse output is: input size * stride if padding == same
         # and (input size -1) * stride + Kernel size if padding == valid
-
         # Since input resolution is 1, computing the stride value is
         # not possible (division by zero (input_size-1))
         # hence we have to use padding = same.
-
         stride = max(*input_res)
         self.model_layers.extend(
             [

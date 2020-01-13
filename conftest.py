@@ -13,17 +13,58 @@
 # limitations under the License.
 
 """pytest configuration."""
+import os
+import shutil
 
 import pytest
-import tensorflow
+import tensorflow  # pylint: disable=import-error
+
 import ashpy
 
 
 @pytest.fixture(autouse=True)
 def add_common_namespaces(doctest_namespace):
-    """Adds the common namespace to all tests."""
-
+    """Add the common namespace to all tests."""
     doctest_namespace["tf"] = tensorflow
     doctest_namespace["trainers"] = ashpy.trainers
     doctest_namespace["models"] = ashpy.models
     doctest_namespace["metrics"] = ashpy.metrics
+    doctest_namespace["layers"] = ashpy.layers
+    doctest_namespace["losses"] = ashpy.losses
+    doctest_namespace["callbacks"] = ashpy.callbacks
+
+
+@pytest.fixture(scope="function")
+def adversarial_logdir():
+    """Add the logdir parameter to tests."""
+    m_adversarial_logdir = "testlog/adversarial"
+
+    # Clean before
+    if os.path.exists(m_adversarial_logdir):
+        shutil.rmtree(m_adversarial_logdir)
+        assert not os.path.exists(m_adversarial_logdir)
+
+    yield m_adversarial_logdir
+
+    # Teardown
+    if os.path.exists(m_adversarial_logdir):
+        shutil.rmtree(m_adversarial_logdir)
+        assert not os.path.exists(m_adversarial_logdir)
+
+
+@pytest.fixture(scope="function")
+def save_dir():
+    """Add the save_dir parameter to tests."""
+    m_save_dir = "testlog/savedir"
+
+    # Clean before
+    if os.path.exists(m_save_dir):
+        shutil.rmtree(m_save_dir)
+        assert not os.path.exists(m_save_dir)
+
+    yield m_save_dir
+
+    # teardown
+    if os.path.exists(m_save_dir):
+        shutil.rmtree(m_save_dir)
+        assert not os.path.exists(m_save_dir)

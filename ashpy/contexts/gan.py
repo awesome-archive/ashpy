@@ -13,42 +13,59 @@
 # limitations under the License.
 
 """GANContext measures the specified metrics on the GAN."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, List, Optional
+
 import tensorflow as tf
 
-from ashpy.contexts.base_context import BaseContext
+from ashpy.contexts.context import Context
 from ashpy.modes import LogEvalMode
 
+if TYPE_CHECKING:
+    from ashpy.losses.executor import Executor
+    from ashpy.metrics import Metric
 
-class GANContext(BaseContext):
+
+class GANContext(Context):
     """:py:class:`ashpy.contexts.gan.GANContext` measure the specified metrics on the GAN."""
 
     def __init__(
         self,
-        dataset=None,
-        generator_model=None,
-        discriminator_model=None,
-        generator_loss=None,
-        discriminator_loss=None,
-        metrics=None,
-        log_eval_mode=LogEvalMode.TRAIN,
-        global_step=tf.Variable(0, name="global_step", trainable=False, dtype=tf.int64),
-        ckpt=None,
-    ):
+        dataset: tf.data.Dataset = None,
+        generator_model: tf.keras.Model = None,
+        discriminator_model: tf.keras.Model = None,
+        generator_loss: Executor = None,
+        discriminator_loss: Executor = None,
+        metrics: List[Metric] = None,
+        log_eval_mode: LogEvalMode = LogEvalMode.TRAIN,
+        global_step: tf.Variable = tf.Variable(
+            0, name="global_step", trainable=False, dtype=tf.int64
+        ),
+        checkpoint: tf.train.Checkpoint = None,
+    ) -> None:
         """
-        Initialize the (:py:class:`ashpy.contexts.gan.GANContext`).
+        Initialize the Context.
 
         Args:
-            dataset (:py:class:`tf.data.Dataset`): Dataset of tuples. [0] true dataset, [1] generator input dataset
-            generator_model: the generator.
-            discriminator_model: the discriminator.
-            generator_loss: the generator loss.
-            discriminator_loss: the discriminator loss.
-            metrics: All the metrics to be used to evaluate the model.
-            log_eval_mode: models' mode to  use when evaluating and logging.
-            global_step: tf.Variable that keeps track of the training steps.
-            ckpt (:py:class:`tf.train.Checkpoint`): checkpoint to use to keep track of models status.
+            dataset (:py:class:`tf.data.Dataset`): Dataset of tuples. [0] true dataset,
+                [1] generator input dataset.
+            generator_model (:py:class:`tf.keras.Model`): The generator.
+            discriminator_model (:py:class:`tf.keras.Model`): The discriminator.
+            generator_loss (:py:func:`ashpy.losses.Executor`): The generator loss.
+            discriminator_loss (:py:func:`ashpy.losses.Executor`): The discriminator loss.
+            metrics (:obj:`list` of [:py:class:`ashpy.metrics.metric.Metric`]): All the metrics
+                to be used to evaluate the model.
+            log_eval_mode (:py:class:`ashpy.modes.LogEvalMode`): Models' mode to  use when
+                evaluating and logging.
+            global_step (:py:class:`tf.Variable`): `tf.Variable` that keeps track of the
+                training steps.
+            checkpoint (:py:class:`tf.train.Checkpoint`): checkpoint to use to keep track of
+                models status.
+
         """
-        super().__init__(metrics, dataset, log_eval_mode, global_step, ckpt)
+        super().__init__(metrics, dataset, log_eval_mode, global_step, checkpoint)
 
         self._generator_model = generator_model
         self._discriminator_model = discriminator_model
@@ -56,58 +73,102 @@ class GANContext(BaseContext):
         self._generator_loss = generator_loss
         self._discriminator_loss = discriminator_loss
 
+        self._fake_samples = None
+        self._generator_inputs = None
+
     @property
-    def generator_model(self):
-        """Returns the generator model"""
+    def generator_model(self) -> tf.keras.Model:
+        """
+        Retrieve the generator model.
+
+        Returns:
+            :py:class:`tf.keras.Model`.
+
+        """
         return self._generator_model
 
     @property
-    def discriminator_model(self):
-        """Returns the discriminator model"""
+    def discriminator_model(self) -> tf.keras.Model:
+        """
+        Retrieve the discriminator model.
+
+        Returns:
+            :py:class:`tf.keras.Model`.
+
+        """
         return self._discriminator_model
 
     @property
-    def generator_loss(self):
-        """Returns the generator loss"""
+    def generator_loss(self) -> Optional[Executor]:
+        """Retrieve the generator loss."""
         return self._generator_loss
 
     @property
-    def discriminator_loss(self):
-        """Returns the discriminator loss"""
+    def discriminator_loss(self) -> Optional[Executor]:
+        """Retrieve the discriminator loss."""
         return self._discriminator_loss
+
+    @property
+    def fake_samples(self) -> Optional[tf.Tensor]:
+        """Retrieve the fake samples, i.e. output of the generator."""
+        return self._fake_samples
+
+    @fake_samples.setter
+    def fake_samples(self, _fake_samples: Optional[tf.Tensor]):
+        """Set the fake samples, i.e. output of the generator."""
+        self._fake_samples = _fake_samples
+
+    @property
+    def generator_inputs(self) -> Optional[tf.Tensor]:
+        """Retrieve the generator inputs."""
+        return self._generator_inputs
+
+    @generator_inputs.setter
+    def generator_inputs(self, _generator_inputs: Optional[tf.Tensor]):
+        """Set the generator inputs."""
+        self._generator_inputs = _generator_inputs
 
 
 class GANEncoderContext(GANContext):
-    r""":py:class:`ashpy.contexts.gan.GANEncoderContext` measure the specified metrics on the GAN."""
+    """:py:class:`ashpy.contexts.gan.GANEncoderContext` measure the specified metrics on the GAN."""
 
     def __init__(
         self,
-        dataset=None,
-        generator_model=None,
-        discriminator_model=None,
-        encoder_model=None,
-        generator_loss=None,
-        discriminator_loss=None,
-        encoder_loss=None,
-        metrics=None,
-        log_eval_mode=LogEvalMode.TRAIN,
-        global_step=tf.Variable(0, name="global_step", trainable=False, dtype=tf.int64),
-        ckpt=None,
-    ):
+        dataset: tf.data.Dataset = None,
+        generator_model: tf.keras.Model = None,
+        discriminator_model: tf.keras.Model = None,
+        encoder_model: tf.keras.Model = None,
+        generator_loss: Executor = None,
+        discriminator_loss: Executor = None,
+        encoder_loss: Executor = None,
+        metrics: List[Metric] = None,
+        log_eval_mode: LogEvalMode = LogEvalMode.TRAIN,
+        global_step: tf.Variable = tf.Variable(
+            0, name="global_step", trainable=False, dtype=tf.int64
+        ),
+        checkpoint: tf.train.Checkpoint = None,
+    ) -> None:
         r"""
-        Initialize the :py:class:`ashpy.contexts.gan.GANEncoderContext`.
+        Initialize the Context.
 
         Args:
-            dataset (:py:class:`tf.data.Dataset`): Dataset of tuples. [0] true dataset, [1] generator input dataset
-            generator_model: the generator.
-            discriminator_model: the discriminator.
-            encoder_model: the encoder.
-            generator_loss: the generator loss.
-            discriminator_loss: the discriminator loss.
-            encoder_loss: the encoder loss.
-            metrics: All the metrics to be used to evaluate the model.
-            log_eval_mode: models' mode to  use when evaluating and logging.
-            global_step: tf.Variable that keeps track of the training steps.
+            dataset (:py:class:`tf.data.Dataset`): Dataset of tuples. [0] true dataset,
+                [1] generator input dataset.
+            generator_model (:py:class:`tf.keras.Model`): The generator.
+            discriminator_model (:py:class:`tf.keras.Model`): The discriminator.
+            encoder_model (:py:class:`tf.keras.Model`): The encoder.
+            generator_loss (:py:func:`ashpy.losses.Executor`): The generator loss.
+            discriminator_loss (:py:func:`ashpy.losses.Executor`): The discriminator loss.
+            encoder_loss (:py:func:`ashpy.losses.Executor`): The encoder loss.
+            metrics (:obj:`list` of [:py:class:`ashpy.metrics.metric.Metric`]): All the metrics
+                to be used to evaluate the model.
+            log_eval_mode (:py:class:`ashpy.modes.LogEvalMode`): Models' mode to  use when
+                evaluating and logging.
+            global_step (:py:class:`tf.Variable`): `tf.Variable` that keeps track of the
+                training steps.
+            checkpoint (:py:class:`tf.train.Checkpoint`): checkpoint to use to keep track of
+                models status.
+
         """
         super().__init__(
             dataset=dataset,
@@ -118,17 +179,46 @@ class GANEncoderContext(GANContext):
             metrics=metrics,
             log_eval_mode=log_eval_mode,
             global_step=global_step,
-            ckpt=ckpt,
+            checkpoint=checkpoint,
         )
         self._encoder_model = encoder_model
         self._encoder_loss = encoder_loss
 
+        self._generator_of_encoder = None
+        self._encoder_inputs = None
+
     @property
-    def encoder_model(self):
-        """Returns the encoder model"""
+    def encoder_model(self) -> tf.keras.Model:
+        """
+        Retrieve the encoder model.
+
+        Returns:
+            :py:class:`tf.keras.Model`.
+
+        """
         return self._encoder_model
 
     @property
-    def encoder_loss(self):
-        """Returns the encoder loss"""
+    def encoder_loss(self) -> Optional[Executor]:
+        """Retrieve the encoder loss."""
         return self._encoder_loss
+
+    @property
+    def generator_of_encoder(self) -> tf.Tensor:
+        """Retrieve the images generated from the encoder output."""
+        return self._generator_of_encoder
+
+    @generator_of_encoder.setter
+    def generator_of_encoder(self, _generator_of_encoder: tf.Tensor):
+        """Set the images generated from the encoder output."""
+        self._generator_of_encoder = _generator_of_encoder
+
+    @property
+    def encoder_inputs(self) -> tf.Tensor:
+        """Retrieve the inputs of the encoder."""
+        return self._encoder_inputs
+
+    @encoder_inputs.setter
+    def encoder_inputs(self, _encoder_inputs: tf.Tensor):
+        """Setter for the inputs of the encoder."""
+        self._encoder_inputs = _encoder_inputs
